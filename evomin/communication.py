@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import NamedTuple
+from typing import NamedTuple, Generator
 
 ComDescription: namedtuple = namedtuple('ComDescription', ['is_master_slave'])
 
@@ -27,7 +27,7 @@ class EvominComInterface(ABC):
         pass
 
     @abstractmethod
-    def receive_byte(self) -> int:
+    def receive_byte(self) -> Generator[int, None, None]:
         """
         Needs to be called by the user wherever the low-level reception of bytes happens, i.e. in your application's
         main loop or in an interrupt on lower levels. For performance reasons, it makes sense to put this in a
