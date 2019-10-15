@@ -14,7 +14,7 @@ class EvominComInterface(ABC):
     communication. It allows the evomin protocol to be independent from a specific interface.
     """
     @abstractmethod
-    def describe(self) -> NamedTuple[ComDescription]:
+    def describe(self):
         pass
 
     @abstractmethod

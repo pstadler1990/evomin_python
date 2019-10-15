@@ -9,7 +9,7 @@ class EvominSPIInterface(EvominComInterface):
     Concrete implementation of the EvominComInterface to be used with SPI.
     """
 
-    def describe(self) -> NamedTuple[ComDescription]:
+    def describe(self):
         return ComDescription(is_master_slave=True)
 
     def send_byte(self, byte: int) -> None:
