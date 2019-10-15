@@ -44,17 +44,17 @@ class EvominState(Enum):
 
 class StateMachine:
     def __init__(self):
-        self.state_idle = StateIdle()
-        self.state_sof = StateSof()
-        self.state_sof2 = StateSof2()
+        self.state_idle = StateIdle(EvominFrameMessageType.SOF)
+        self.state_sof = StateSof(EvominFrameMessageType.SOF)
+        self.state_sof2 = StateSof2(EvominFrameMessageType.SOF)
         self.state_cmd = StateCmd()
         self.state_len = StateLen()
         self.state_payld = StatePayld()
-        self.state_crc = StateCRC()
+        self.state_crc = StateCRC()     # We assign the required crc at the state with self.state_crc.expect(<the crc>)
         self.state_crc_fail = StateCRCFail()
-        self.state_eof = StateEof()
+        self.state_eof = StateEof(EvominFrameMessageType.EOF)
         self.state_reply = StateReply()
-        self.state_replay_createframe = StateReplyCreateFrame()
+        self.state_reply_createframe = StateReplyCreateFrame()
         self.state_error = StateError()
         self.current_state: State = self.state_idle
 
@@ -62,7 +62,7 @@ class StateMachine:
         self.current_state = self.state_idle
 
     def run(self, byte: int) -> None:
-        self.current_state.run(byte)
+        self.current_state = self.current_state.run(byte)
 
 
 class Evomin:
@@ -73,10 +73,12 @@ class Evomin:
         self.frame_received_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
         self.current_frame: EvominFrame = type(None)
         self.state: StateMachine = StateMachine()
+        self.byte_getter = self.com_interface.receive_byte()
 
     def rx_handler(self) -> None:
-        incoming_byte: int = self.com_interface.receive_byte()
+        incoming_byte: int = next(self.byte_getter)
         if incoming_byte >= 0:
             # Byte received
+            print("Received byte: ", incoming_byte)
             self.state.run(incoming_byte)
 
