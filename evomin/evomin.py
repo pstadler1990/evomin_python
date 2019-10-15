@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 from enum import Enum
+from evomin.communication import EvominComInterface
 
 
 class EvominState(Enum):
@@ -37,4 +38,6 @@ class EvominState(Enum):
 
 
 class Evomin:
-    pass
+
+    def __init__(self, com_interface: EvominComInterface) -> None:
+        pass
