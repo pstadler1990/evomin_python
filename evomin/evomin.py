@@ -50,8 +50,7 @@ class StateMachine:
         self.state_cmd = self.StateCmd(self)
         self.state_len = self.StateLen(self)
         self.state_payld = self.StatePayld(self)
-        self.state_crc = self.StateCRC(
-            self)  # We assign the required crc at the state with self.state_crc.expect(<the crc>)
+        self.state_crc = self.StateCRC(self)
         self.state_crc_fail = self.StateCRCFail(self)
         self.state_eof = self.StateEof(self, EvominFrameMessageType.EOF)
         self.state_reply = self.StateReply(self)
