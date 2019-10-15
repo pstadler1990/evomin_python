@@ -22,3 +22,4 @@ class EvominFakeSPIInterface(EvominComInterface):
     def receive_byte(self) -> Generator[int, None, None]:
         for b in self.test_data:
             yield b
+        return
