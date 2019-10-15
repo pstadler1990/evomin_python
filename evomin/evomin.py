@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 from enum import Enum
+from typing import Type
 from evomin.communication import EvominComInterface
 from queue import Queue
 from evomin.config import config
 from evomin.frame import EvominFrame
+from evomin.state import State, StateIdle
 
 
 class EvominState(Enum):
@@ -40,6 +42,11 @@ class EvominState(Enum):
     ERROR = 14
 
 
+class StateMachine:
+    def __init__(self):
+        self.state: Type[State] = StateIdle
+
+
 class Evomin:
 
     def __init__(self, com_interface: EvominComInterface) -> None:
@@ -47,5 +54,10 @@ class Evomin:
         self.frame_send_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
         self.frame_received_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
         self.current_frame: EvominFrame = type(None)
-        self.state: EvominState = EvominState.INIT
+        self.state: StateMachine = StateMachine()
 
+    def rx_handler(self) -> None:
+        incoming_byte: int = self.com_interface.receive_byte()
+        if incoming_byte >= 0:
+            # Byte received
+            pass
