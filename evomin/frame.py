@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
-from enum import Enum
 from evomin.buffer import EvominBuffer
 from datetime import datetime
 from evomin.config import config
 
 
-class EvominFrameMessageType(Enum):
+class EvominFrameMessageType:
     """
     EvominFrameMessageType indicates the function of specific reserved bytes
     within the evomin protocol.
@@ -25,7 +24,7 @@ class EvominFrameMessageType(Enum):
     DUMMY = 0xF0
 
 
-class EvominFrameCommandType(Enum):
+class EvominFrameCommandType:
     """
     EvominFrameCommandType defines all protocol internal command types.
     These can be extended, but sometimes it's better to use a predefined command and add a payload, than extending
