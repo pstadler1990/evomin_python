@@ -6,4 +6,7 @@ from evomin.evomin import Evomin
 if __name__ == '__main__':
     # Initialize evomin communication interface with SPI transport
     evomin = Evomin(EvominFakeSPIInterface())
-    evomin.rx_handler()
+
+    # Mock polling interface
+    while True:
+        evomin.rx_handler()
