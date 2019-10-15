@@ -1,0 +1,6 @@
+interface:
+  max_queued_frames: 5
+
+frame:
+  buffer_size: 50
+  retry_count: 3
