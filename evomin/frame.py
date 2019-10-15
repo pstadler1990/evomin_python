@@ -1,6 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 from enum import Enum
+from evomin.buffer import EvominBuffer
+from datetime import datetime
+from evomin.config import config
 
 
 class EvominFrameMessageType(Enum):
@@ -22,5 +25,34 @@ class EvominFrameMessageType(Enum):
     DUMMY = 0xF0
 
 
+class EvominFrameCommandType(Enum):
+    """
+    EvominFrameCommandType defines all protocol internal command types.
+    These can be extended, but sometimes it's better to use a predefined command and add a payload, than extending
+    the command list for every new operation.
+    RESERVED: Not used
+    SEND_IDN: Used for defining a self identification frame
+    """
+    RESERVED = 0x00
+    SEND_IDN = 0xCD
+
+
 class EvominFrame:
-    pass
+
+    def __init__(self, command: EvominFrameCommandType, payload: bytes) -> None:
+        """
+        Initialize a new EvominFrame to be sent respectively queued. Every communication transaction consists of
+        a EvominFrame, as it acts as a wrapper for the internal protocol and is processed through the state machine.
+        :param command: EvominFrameCommandType
+        :param payload: Any number of bytes - for compatibility with the C API pay attention to the defined maximum
+                        payload size
+        """
+        self.is_sent: bool = False
+        self.is_valid: bool = False
+        self.command: EvominFrameCommandType = command
+        self.buffer: EvominBuffer = EvominBuffer(payload)
+        self.crc8: int = 0
+        self.timestamp: datetime = datetime.now()
+        self.retries_left: int = config['frame']['retry_count']
+        # answerBuffer ?
+        # replyBuffer ?
