@@ -5,8 +5,8 @@ from typing import Type
 from evomin.communication import EvominComInterface
 from queue import Queue
 from evomin.config import config
-from evomin.frame import EvominFrame
-from evomin.state import State, StateIdle
+from evomin.frame import EvominFrame, EvominFrameMessageType
+from evomin.state import *
 
 
 class EvominState(Enum):
@@ -44,7 +44,25 @@ class EvominState(Enum):
 
 class StateMachine:
     def __init__(self):
-        self.state: Type[State] = StateIdle
+        self.state_idle = StateIdle()
+        self.state_sof = StateSof()
+        self.state_sof2 = StateSof2()
+        self.state_cmd = StateCmd()
+        self.state_len = StateLen()
+        self.state_payld = StatePayld()
+        self.state_crc = StateCRC()
+        self.state_crc_fail = StateCRCFail()
+        self.state_eof = StateEof()
+        self.state_reply = StateReply()
+        self.state_replay_createframe = StateReplyCreateFrame()
+        self.state_error = StateError()
+        self.current_state: State = self.state_idle
+
+    def reset(self):
+        self.current_state = self.state_idle
+
+    def run(self, byte: int) -> None:
+        self.current_state.run(byte)
 
 
 class Evomin:
@@ -60,4 +78,5 @@ class Evomin:
         incoming_byte: int = self.com_interface.receive_byte()
         if incoming_byte >= 0:
             # Byte received
-            pass
+            self.state.run(incoming_byte)
+

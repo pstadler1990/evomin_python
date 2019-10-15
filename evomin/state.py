@@ -6,110 +6,150 @@ from abc import ABC, abstractmethod
 class State(ABC):
     """
     Abstract state blueprint
+    run: the actual state execution
     proceed: translate to the next state
     fail: fail the current state
     """
     @abstractmethod
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
     @abstractmethod
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    @abstractmethod
+    def fail(self) -> 'State':
         pass
 
 
 class StateIdle(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateSof(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateSof2(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateCmd(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateLen(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StatePayld(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateCRC(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateCRCFail(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateEof(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateReply(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateReplyCreateFrame(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
+        pass
+
+    def fail(self) -> 'State':
         pass
 
 
 class StateError(State):
-    def proceed(self):
+    def run(self, byte: int) -> None:
         pass
 
-    def fail(self):
+    def proceed(self) -> 'State':
         pass
 
+    def fail(self) -> 'State':
+        pass
