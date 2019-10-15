@@ -1,8 +1,11 @@
 # !/usr/bin/env python
 # -*- coding: utf-8 -*
+from __future__ import annotations
 from abc import ABC, abstractmethod
-from typing import Any, Optional
-from evomin.frame import EvominFrameMessageType
+from typing import Any, Optional, TYPE_CHECKING
+if TYPE_CHECKING:
+    # Prevent circular dependencies due to type hinting
+    from evomin.evomin import StateMachine
 
 
 class State(ABC):
@@ -12,17 +15,18 @@ class State(ABC):
     proceed: translate to the next state
     fail: fail the current state
     """
-    def __init__(self, expected: Optional[Any] = None) -> None:
+    def __init__(self, state_machine: StateMachine, expected: Optional[Any] = None) -> None:
+        self.state_machine = state_machine
         self.expected_byte = expected
 
     def run(self, byte: int) -> 'State':
         if (not self.expected_byte) or (self.expected_byte and byte == self.expected_byte):
-            return self.proceed()
+            return self.proceed(byte)
         else:
             return self.fail()
 
     @abstractmethod
-    def proceed(self) -> 'State':
+    def proceed(self, byte: int) -> 'State':
         pass
 
     @abstractmethod
@@ -36,99 +40,3 @@ class State(ABC):
     @expect.setter
     def expect(self, expected):
         self.expected_byte = expected
-
-
-class StateIdle(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateSof(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateSof2(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateCmd(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateLen(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StatePayld(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateCRC(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateCRCFail(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateEof(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateReply(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateReplyCreateFrame(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
-
-
-class StateError(State):
-    def proceed(self) -> 'State':
-        print("State idle PROCEED")
-
-    def fail(self) -> 'State':
-        print("State idle FAIL")
