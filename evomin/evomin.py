@@ -2,6 +2,9 @@
 # -*- coding: utf-8 -*
 from enum import Enum
 from evomin.communication import EvominComInterface
+from queue import Queue
+from evomin.config import config
+from evomin.frame import EvominFrame
 
 
 class EvominState(Enum):
@@ -40,4 +43,9 @@ class EvominState(Enum):
 class Evomin:
 
     def __init__(self, com_interface: EvominComInterface) -> None:
-        pass
+        self.com_interface: EvominComInterface = com_interface
+        self.frame_send_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
+        self.frame_received_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
+        self.current_frame: EvominFrame = type(None)
+        self.state: EvominState = EvominState.INIT
+
