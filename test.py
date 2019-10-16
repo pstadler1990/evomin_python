@@ -10,8 +10,10 @@ class EvominImpl(Evomin):
     Concrete application side implementation
     """
     def frame_received(self, frame: EvominFrame) -> None:
-        print('Received frame!', frame)
-        self.reply(bytes([0xA0, 0xA1, 0xA2, 0xA3, 0xB0, 0xB1, 0xB2, 0xB3]))
+        print('** Frame received **')
+        self.log_debug('[Evomin] EvominFrame received, Command: {}, Payload length: {}'.format(frame.command, frame.payload_length))
+        # self.reply(bytes([0xA0, 0xA1, 0xA2, 0xA3, 0xB0, 0xB1, 0xB2, 0xB3]))
+        self.reply(bytes([0x01, 0x02]))
 
 
 if __name__ == '__main__':
