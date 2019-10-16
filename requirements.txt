@@ -1,1 +1,3 @@
 pyyaml
+sphinx
+sphinx-autodoc-typehints
