@@ -11,6 +11,7 @@ class EvominImpl(Evomin):
     """
     def frame_received(self, frame: EvominFrame) -> None:
         print('Received frame!', frame)
+        self.reply(bytes([0xA0, 0xA1, 0xA2, 0xA3, 0xB0, 0xB1, 0xB2, 0xB3]))
 
 
 if __name__ == '__main__':
