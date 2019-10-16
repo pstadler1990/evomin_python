@@ -6,6 +6,7 @@ from queue import Queue, Full
 from evomin.config import config
 from evomin.frame import EvominFrame, EvominFrameMessageType
 from evomin.state import *
+import logging
 
 
 class EvominState(Enum):
@@ -98,7 +99,14 @@ class StateMachine:
     class StateLen(State):
         def proceed(self, byte: int) -> 'State':
             self.interface.current_frame.payload_length = byte
-            return self.state_machine.state_payld if byte > 0 else self.state_machine.state_crc
+            if byte > 0:
+                return self.state_machine.state_payld
+            else:
+                if not self.interface.current_frame.payload_length and self.interface.com_interface.describe().is_master_slave:
+                    # On a master-slave communication interface, call the frame_received handler early, to allow
+                    # the slave to prepare a reply
+                    self.interface.frame_received(self.interface.current_frame)
+                return self.state_machine.state_crc
 
         def fail(self) -> 'State':
             return self.state_machine.state_error
@@ -136,12 +144,7 @@ class StateMachine:
                 except Full:
                     return self.fail()
             else:
-                if self.interface.com_interface.describe().is_master_slave:
-                    # On a master-slave communication interface, call the frame_received handler early, to allow
-                    # the slave to prepare a reply
-                    self.interface.frame_received(self.interface.current_frame)
-
-                return self.state_machine.state_crc
+                return self.fail()
 
         def fail(self) -> 'State':
             return self.state_machine.state_error
@@ -169,6 +172,7 @@ class StateMachine:
 
         def fail(self) -> 'State':
             # Call the error state directly, as there's no further data reception after this state
+            self.interface.log_error('CRC8 failed')
             self.state_machine.state_error.run(0)
             # We can safely return to the idle state here
             return self.state_machine.state_idle
@@ -212,8 +216,8 @@ class StateMachine:
 
     class StateError(State):
         def proceed(self, byte: int) -> 'State':
-            self.interface.com_interface.send_byte(EvominFrameMessageType.NACK)
-            # TODO: Add logger entry
+            # TODO: Check if additional NACK is required here?
+            self.interface.log_error('Error while frame reception, discard data')
             return self.state_machine.state_idle
 
         def fail(self) -> 'State':
@@ -235,6 +239,21 @@ class Evomin(ABC):
         self.current_frame: EvominFrame = type(None)
         self.state: StateMachine = StateMachine(self)
         self.byte_getter = self.com_interface.receive_byte()
+
+        self._init_logger()
+
+    def _init_logger(self):
+        self.enabled = config['logging']['use_logging']
+        if self.enabled:
+            logging.basicConfig(level=logging.DEBUG, filename=config['logging']['file'], format='%(asctime)s - %(message)s')
+
+    def log_debug(self, message: str) -> None:
+        if self.enabled:
+            logging.debug(message)
+
+    def log_error(self, message: str) -> None:
+        if self.enabled:
+            logging.error(message)
 
     def rx_handler(self) -> None:
         """

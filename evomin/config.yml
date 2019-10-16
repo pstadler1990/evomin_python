@@ -4,3 +4,7 @@ interface:
 frame:
   buffer_size: 50
   retry_count: 3
+
+logging:
+  use_logging: True
+  file: 'evomin.log'
