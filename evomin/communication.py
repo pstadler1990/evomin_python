@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import NamedTuple, Generator
+from typing import Generator
 
 ComDescription: namedtuple = namedtuple('ComDescription', ['is_master_slave'])
 
