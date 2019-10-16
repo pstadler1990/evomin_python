@@ -128,18 +128,24 @@ class StateMachine:
                 self.state_machine.interface.current_frame.last_byte_was_stfbyt = True
 
             # Store payload data in the payload buffer
-            if self.state_machine.interface.current_frame.payload_buffer.size < self.state_machine.interface.current_frame.payload_length:
+            if self.state_machine.interface.current_frame.payload_length > 0:
                 try:
-                    self.state_machine.interface.current_frame.payload_buffer.push(byte)
-                    return self.state_machine.state_payld
+                    self.state_machine.interface.current_frame.add_payload(byte)
+
+                    if self.state_machine.interface.current_frame.payload_buffer.size == self.state_machine.interface.current_frame.payload_length:
+                        # We've copied everything into the payload buffer
+                        self.state_machine.interface.current_frame.finalize()
+                        return self.state_machine.state_crc
+                    else:
+                        return self
                 except Full:
                     return self.fail()
             else:
                 if self.state_machine.interface.com_interface.describe().is_master_slave:
                     # On a master-slave communication interface, call the frame_received handler early, to allow
                     # the slave to prepare a reply
-                    # TODO: Call frame_received()
-                    pass
+                    self.state_machine.interface.frame_received(self.state_machine.interface.current_frame)
+
                 return self.state_machine.state_crc
 
         def fail(self) -> 'State':
@@ -149,9 +155,7 @@ class StateMachine:
     class StateCRC(State):
         def proceed(self, byte: int) -> 'State':
             print("State crc PROCEED")
-            self.state_machine.interface.current_frame.crc8 = byte
-            frame_calculated_crc8: int = 86  # TODO: Replace 1 with calculate_crc8(..)
-            if byte == frame_calculated_crc8:
+            if byte == self.state_machine.interface.current_frame.crc8:
                 self.state_machine.interface.current_frame.is_valid = True
                 # TODO: If master-slave mode:
                     # TODO: Send ACK byte to acknowledge reception of message (pre-fill TX buffer to be ready at the EOF byte)
@@ -226,9 +230,10 @@ class StateMachine:
             return self.state_machine.state_error
 
 
-class Evomin:
+class Evomin(ABC):
     """
     Evomin is the main entry point to the evomin communication interface
+    Note that this class is abstract, as you need to implement some methods, depending on your use case.
     """
     def __init__(self, com_interface: EvominComInterface) -> None:
         """
@@ -254,3 +259,16 @@ class Evomin:
                 self.state.run(incoming_byte)
         except StopIteration:
             pass
+
+    def reply(self, reply_bytes: bytes) -> None:
+        pass
+
+    @abstractmethod
+    def frame_received(self, frame: EvominFrame) -> None:
+        """
+        Blueprint method to be implemented by the user.
+        This callback gets called whenever we've received a complete and valid frame.
+        Implement this method in your application
+        :param frame: The received valid frame including the command, payload and crc
+        """
+        pass
