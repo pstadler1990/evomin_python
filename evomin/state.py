@@ -20,18 +20,18 @@ class State(ABC):
         self.interface = interface
         self.expected_byte = expected
 
-    def run(self, byte: int) -> 'State':
+    def run(self, byte: int) -> State:
         if (not self.expected_byte) or (self.expected_byte and byte == self.expected_byte):
             return self.proceed(byte)
         else:
             return self.fail()
 
     @abstractmethod
-    def proceed(self, byte: int) -> 'State':
+    def proceed(self, byte: int) -> State:
         pass
 
     @abstractmethod
-    def fail(self) -> 'State':
+    def fail(self) -> State:
         pass
 
     @property
