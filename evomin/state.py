@@ -5,7 +5,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Optional, TYPE_CHECKING
 if TYPE_CHECKING:
     # Prevent circular dependencies due to type hinting
-    from evomin.evomin import StateMachine
+    from evomin.evomin import StateMachine, Evomin
 
 
 class State(ABC):
@@ -15,8 +15,9 @@ class State(ABC):
     proceed: translate to the next state
     fail: fail the current state
     """
-    def __init__(self, state_machine: StateMachine, expected: Optional[Any] = None) -> None:
+    def __init__(self, state_machine: StateMachine, interface: Evomin, expected: Optional[Any] = None) -> None:
         self.state_machine = state_machine
+        self.interface = interface
         self.expected_byte = expected
 
     def run(self, byte: int) -> 'State':

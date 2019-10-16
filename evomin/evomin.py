@@ -44,18 +44,18 @@ class EvominState(Enum):
 class StateMachine:
 
     def __init__(self, evomin_interface: 'Evomin'):
-        self.state_idle = self.StateIdle(self, EvominFrameMessageType.SOF)
-        self.state_sof = self.StateSof(self, EvominFrameMessageType.SOF)
-        self.state_sof2 = self.StateSof2(self, EvominFrameMessageType.SOF)
-        self.state_cmd = self.StateCmd(self)
-        self.state_len = self.StateLen(self)
-        self.state_payld = self.StatePayld(self)
-        self.state_crc = self.StateCRC(self)
-        self.state_crc_fail = self.StateCRCFail(self)
-        self.state_eof = self.StateEof(self, EvominFrameMessageType.EOF)
-        self.state_reply = self.StateReply(self)
-        self.state_reply_createframe = self.StateReplyCreateFrame(self)
-        self.state_error = self.StateError(self)
+        self.state_idle = self.StateIdle(self, evomin_interface, EvominFrameMessageType.SOF)
+        self.state_sof = self.StateSof(self, evomin_interface, EvominFrameMessageType.SOF)
+        self.state_sof2 = self.StateSof2(self, evomin_interface, EvominFrameMessageType.SOF)
+        self.state_cmd = self.StateCmd(self, evomin_interface)
+        self.state_len = self.StateLen(self, evomin_interface)
+        self.state_payld = self.StatePayld(self, evomin_interface)
+        self.state_crc = self.StateCRC(self, evomin_interface)
+        self.state_crc_fail = self.StateCRCFail(self, evomin_interface)
+        self.state_eof = self.StateEof(self, evomin_interface, EvominFrameMessageType.EOF)
+        self.state_reply = self.StateReply(self, evomin_interface)
+        self.state_reply_createframe = self.StateReplyCreateFrame(self, evomin_interface)
+        self.state_error = self.StateError(self, evomin_interface)
         self.interface = evomin_interface
         self.current_state: State = self.state_idle
 
@@ -89,7 +89,7 @@ class StateMachine:
     class StateCmd(State):
         def proceed(self, byte: int) -> 'State':
             # Initialize a new EvominFrame
-            self.state_machine.interface.current_frame = EvominFrame(command=byte)
+            self.interface.current_frame = EvominFrame(command=byte)
             return self.state_machine.state_len
 
         def fail(self) -> 'State':
@@ -97,7 +97,7 @@ class StateMachine:
 
     class StateLen(State):
         def proceed(self, byte: int) -> 'State':
-            self.state_machine.interface.current_frame.payload_length = byte
+            self.interface.current_frame.payload_length = byte
             return self.state_machine.state_payld if byte > 0 else self.state_machine.state_crc
 
         def fail(self) -> 'State':
@@ -107,33 +107,39 @@ class StateMachine:
         def proceed(self, byte: int) -> 'State':
             # For the reception of a frame body if two 0xAA bytes in a row are received
             # then the next received byte is discarded
-            if self.state_machine.interface.current_frame.last_byte_was_stfbyt:
-                self.state_machine.interface.current_frame.last_byte_was_stfbyt = False
-                self.state_machine.interface.current_frame.last_byte = EvominFrameMessageType.STFBYT
+            if self.interface.current_frame.last_byte_was_stfbyt:
+                self.interface.current_frame.last_byte_was_stfbyt = False
+                self.interface.current_frame.last_byte = EvominFrameMessageType.STFBYT
                 return self
             if byte == EvominFrameMessageType.SOF \
-                    and self.state_machine.interface.current_frame.last_byte == EvominFrameMessageType.SOF:
+                    and self.interface.current_frame.last_byte == EvominFrameMessageType.SOF:
                 # Stuff byte detected
-                self.state_machine.interface.current_frame.last_byte_was_stfbyt = True
+                self.interface.current_frame.last_byte_was_stfbyt = True
 
             # Store payload data in the payload buffer
-            if self.state_machine.interface.current_frame.payload_length > 0:
+            if self.interface.current_frame.payload_length:
                 try:
-                    self.state_machine.interface.current_frame.add_payload(byte)
+                    self.interface.current_frame.add_payload(byte)
 
-                    if self.state_machine.interface.current_frame.payload_buffer.size == self.state_machine.interface.current_frame.payload_length:
+                    if self.interface.current_frame.payload_buffer.size == self.interface.current_frame.payload_length:
                         # We've copied everything into the payload buffer
-                        self.state_machine.interface.current_frame.finalize()
+                        self.interface.current_frame.finalize()
+
+                        if self.interface.com_interface.describe().is_master_slave:
+                            # On a master-slave communication interface, call the frame_received handler early, to allow
+                            # the slave to prepare a reply
+                            self.interface.frame_received(self.interface.current_frame)
+
                         return self.state_machine.state_crc
                     else:
                         return self
                 except Full:
                     return self.fail()
             else:
-                if self.state_machine.interface.com_interface.describe().is_master_slave:
+                if self.interface.com_interface.describe().is_master_slave:
                     # On a master-slave communication interface, call the frame_received handler early, to allow
                     # the slave to prepare a reply
-                    self.state_machine.interface.frame_received(self.state_machine.interface.current_frame)
+                    self.interface.frame_received(self.interface.current_frame)
 
                 return self.state_machine.state_crc
 
@@ -142,14 +148,16 @@ class StateMachine:
 
     class StateCRC(State):
         def proceed(self, byte: int) -> 'State':
-            if byte == self.state_machine.interface.current_frame.crc8:
-                self.state_machine.interface.current_frame.is_valid = True
-                # TODO: If master-slave mode:
-                    # TODO: Send ACK byte to acknowledge reception of message (pre-fill TX buffer to be ready at the EOF byte)
+            if byte == self.interface.current_frame.crc8:
+                self.interface.current_frame.is_valid = True
+                if self.interface.com_interface.describe().is_master_slave:
+                    # Send ACK byte to acknowledge reception of message (pre-fill TX buffer to be ready at the EOF byte)
+                    self.interface.com_interface.send_byte(EvominFrameMessageType.ACK)
                 return self.state_machine.state_eof
             else:
-                # TODO: If master-slave mode:
-                    # TODO: Send NACK byte to cancel any further sender communication
+                if self.interface.com_interface.describe().is_master_slave:
+                    # Send NACK byte to cancel any further sender communication
+                    self.interface.com_interface.send_byte(EvominFrameMessageType.NACK)
                 return self.fail()
 
         def fail(self) -> 'State':
@@ -167,13 +175,15 @@ class StateMachine:
 
     class StateEof(State):
         def proceed(self, byte: int) -> 'State':
-            if self.state_machine.interface.current_frame.is_valid:
-                if self.state_machine.interface.com_interface.describe().is_master_slave:
-                    # TODO: Send number of reply bytes
+            if self.interface.current_frame.is_valid:
+                if self.interface.com_interface.describe().is_master_slave:
+                    # Send number of reply bytes
+                    self.interface.com_interface.send_byte(self.interface.current_frame.answer_buffer.size)
                     return self.state_machine.state_reply
                 else:
-                    # TODO: Send ACK
-                    # TODO: Call frame_received()
+                    # Send ACK
+                    self.interface.com_interface.send_byte(EvominFrameMessageType.ACK)
+                    self.interface.frame_received(self.state_machine.interface.current_frame)
                     return self.state_machine.state_idle
             else:
                 return self.fail()
@@ -183,7 +193,11 @@ class StateMachine:
 
     class StateReply(State):
         def proceed(self, byte: int) -> 'State':
-            # TODO: Send answer bytes
+            if self.interface.current_frame.answer_buffer.size:
+                # Pop byte
+                byte: int = self.interface.current_frame.answer_buffer.get()
+                self.interface.com_interface.send_byte(byte)
+                # Send byte
             return self.state_machine.state_idle    # TODO
 
         def fail(self) -> 'State':
@@ -237,7 +251,8 @@ class Evomin(ABC):
             pass
 
     def reply(self, reply_bytes: bytes) -> None:
-        pass
+        if len(reply_bytes):
+            map(self.current_frame.answer_buffer.push, reply_bytes)
 
     @abstractmethod
     def frame_received(self, frame: EvominFrame) -> None:
