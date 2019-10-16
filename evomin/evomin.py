@@ -44,7 +44,9 @@ class EvominState(Enum):
 
 
 class StateMachine:
-
+    """
+    Internal state machine to handle both, transmission and reception of data and EvominFrames
+    """
     def __init__(self, evomin_interface: Evomin):
         self.state_idle = self.StateIdle(self, evomin_interface, EvominFrameMessageType.SOF)
         self.state_sof = self.StateSof(self, evomin_interface, EvominFrameMessageType.SOF)
@@ -65,9 +67,16 @@ class StateMachine:
         self.current_state = self.state_idle
 
     def run(self, byte: int) -> None:
+        """
+        Run the current state (code execution and state translation)
+        :param byte: current received byte (from the low-level receive handler)
+        """
         self.current_state = self.current_state.run(byte)
 
     class StateIdle(State):
+        """
+        Waiting for start of frames
+        """
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof
 
@@ -75,6 +84,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateSof(State):
+        """
+        Waiting for SOF byte 2
+        """
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof2
 
@@ -82,6 +94,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateSof2(State):
+        """
+        Waiting for SOF byte 3
+        """
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_cmd
 
@@ -89,6 +104,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateCmd(State):
+        """
+        Reading in command identifier
+        """
         def proceed(self, byte: int) -> State:
             # Initialize a new EvominFrame
             self.interface.current_frame = EvominFrame(command=byte)
@@ -98,6 +116,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateLen(State):
+        """
+        Reading in payload length
+        """
         def proceed(self, byte: int) -> State:
             self.interface.current_frame.payload_length = byte
             if byte > 0:
@@ -113,6 +134,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StatePayld(State):
+        """
+        Processing and copying payload
+        """
         def proceed(self, byte: int) -> State:
             # For the reception of a frame body if two 0xAA bytes in a row are received
             # then the next received byte is discarded
@@ -151,6 +175,9 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateCRC(State):
+        """
+        CRC calculation and check
+        """
         def proceed(self, byte: int) -> State:
             if byte == self.interface.current_frame.crc8:
                 self.interface.current_frame.is_valid = True
@@ -168,6 +195,9 @@ class StateMachine:
             return self.state_machine.state_crc_fail
 
     class StateCRCFail(State):
+        """
+        Failed crc check
+        """
         def proceed(self, byte: int) -> State:
             return self.fail()
 
@@ -179,6 +209,9 @@ class StateMachine:
             return self.state_machine.state_idle
 
     class StateEof(State):
+        """
+        Waiting for end of frame
+        """
         def proceed(self, byte: int) -> State:
             if self.interface.current_frame.is_valid:
                 if self.interface.com_interface.describe().is_master_slave:
@@ -197,6 +230,10 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateReply(State):
+        """
+        On a master-slave based communication (like SPI, I2C) one can reply directly on a received EvominFrame
+        using the provided reply(..) method within the frame_received(..) handler.
+        """
         def proceed(self, byte: int) -> State:
             if self.interface.current_frame.answer_buffer.size:
                 # Pop byte
@@ -216,6 +253,10 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateError(State):
+        """
+        Whenever something terrible happened while receiving a frame, we end up here..
+        (except while comparing the checksums, crc errors have their own state)
+        """
         def proceed(self, byte: int) -> State:
             # TODO: Check if additional NACK is required here?
             self.interface.log_error('Error while frame reception, discard data')
