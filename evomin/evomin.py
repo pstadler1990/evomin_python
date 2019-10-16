@@ -195,10 +195,10 @@ class StateMachine:
         def proceed(self, byte: int) -> 'State':
             if self.interface.current_frame.answer_buffer.size:
                 # Pop byte
-                byte: int = self.interface.current_frame.answer_buffer.get()
-                self.interface.com_interface.send_byte(byte)
-                # Send byte
-            return self.state_machine.state_idle    # TODO
+                reply_byte: int = self.interface.current_frame.answer_buffer.get()
+                self.interface.com_interface.send_byte(reply_byte)
+                return self
+            return self.state_machine.state_idle
 
         def fail(self) -> 'State':
             return self.state_machine.state_error
@@ -212,7 +212,7 @@ class StateMachine:
 
     class StateError(State):
         def proceed(self, byte: int) -> 'State':
-            # TODO: Send NACK
+            self.interface.com_interface.send_byte(EvominFrameMessageType.NACK)
             # TODO: Add logger entry
             return self.state_machine.state_idle
 
@@ -252,7 +252,7 @@ class Evomin(ABC):
 
     def reply(self, reply_bytes: bytes) -> None:
         if len(reply_bytes):
-            map(self.current_frame.answer_buffer.push, reply_bytes)
+            [self.current_frame.answer_buffer.push(b) for b in reply_bytes]
 
     @abstractmethod
     def frame_received(self, frame: EvominFrame) -> None:
