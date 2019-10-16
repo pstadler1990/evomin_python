@@ -67,55 +67,44 @@ class StateMachine:
 
     class StateIdle(State):
         def proceed(self, byte: int) -> 'State':
-            print("State idle PROCEED")
             return self.state_machine.state_sof
 
         def fail(self) -> 'State':
-            print("State idle FAIL")
             return self.state_machine.state_error
 
     class StateSof(State):
         def proceed(self, byte: int) -> 'State':
-            print("State sof PROCEED")
             return self.state_machine.state_sof2
 
         def fail(self) -> 'State':
-            print("State sof FAIL")
             return self.state_machine.state_error
 
     class StateSof2(State):
         def proceed(self, byte: int) -> 'State':
-            print("State sof2 PROCEED")
             return self.state_machine.state_cmd
 
         def fail(self) -> 'State':
-            print("State sof2 FAIL")
             return self.state_machine.state_error
 
     class StateCmd(State):
         def proceed(self, byte: int) -> 'State':
-            print("State cmd PROCEED")
             # Initialize a new EvominFrame
             self.state_machine.interface.current_frame = EvominFrame(command=byte)
             return self.state_machine.state_len
 
         def fail(self) -> 'State':
-            print("State cmd FAIL")
             return self.state_machine.state_error
 
     class StateLen(State):
         def proceed(self, byte: int) -> 'State':
-            print("State len PROCEED")
             self.state_machine.interface.current_frame.payload_length = byte
             return self.state_machine.state_payld if byte > 0 else self.state_machine.state_crc
 
         def fail(self) -> 'State':
-            print("State len FAIL")
             return self.state_machine.state_error
 
     class StatePayld(State):
         def proceed(self, byte: int) -> 'State':
-            print("State payld PROCEED")
             # For the reception of a frame body if two 0xAA bytes in a row are received
             # then the next received byte is discarded
             if self.state_machine.interface.current_frame.last_byte_was_stfbyt:
@@ -149,12 +138,10 @@ class StateMachine:
                 return self.state_machine.state_crc
 
         def fail(self) -> 'State':
-            print("State payld FAIL")
             return self.state_machine.state_error
 
     class StateCRC(State):
         def proceed(self, byte: int) -> 'State':
-            print("State crc PROCEED")
             if byte == self.state_machine.interface.current_frame.crc8:
                 self.state_machine.interface.current_frame.is_valid = True
                 # TODO: If master-slave mode:
@@ -166,16 +153,13 @@ class StateMachine:
                 return self.fail()
 
         def fail(self) -> 'State':
-            print("State crc FAIL")
             return self.state_machine.state_crc_fail
 
     class StateCRCFail(State):
         def proceed(self, byte: int) -> 'State':
-            print("State crcfail PROCEED")
             return self.fail()
 
         def fail(self) -> 'State':
-            print("State crcfail FAIL")
             # Call the error state directly, as there's no further data reception after this state
             self.state_machine.state_error.run(0)
             # We can safely return to the idle state here
@@ -183,7 +167,6 @@ class StateMachine:
 
     class StateEof(State):
         def proceed(self, byte: int) -> 'State':
-            print("State eof PROCEED")
             if self.state_machine.interface.current_frame.is_valid:
                 if self.state_machine.interface.com_interface.describe().is_master_slave:
                     # TODO: Send number of reply bytes
@@ -196,37 +179,30 @@ class StateMachine:
                 return self.fail()
 
         def fail(self) -> 'State':
-            print("State eof FAIL")
             return self.state_machine.state_error
 
     class StateReply(State):
         def proceed(self, byte: int) -> 'State':
-            print("State reply PROCEED")
             # TODO: Send answer bytes
             return self.state_machine.state_idle    # TODO
 
         def fail(self) -> 'State':
-            print("State reply FAIL")
             return self.state_machine.state_error
 
     class StateReplyCreateFrame(State):
         def proceed(self, byte: int) -> 'State':
-            print("State replycreateframe PROCEED")
             return self.state_machine.state_idle  # TODO
 
         def fail(self) -> 'State':
-            print("State replycreateframe FAIL")
             return self.state_machine.state_error
 
     class StateError(State):
         def proceed(self, byte: int) -> 'State':
-            print("State error PROCEED")
             # TODO: Send NACK
             # TODO: Add logger entry
             return self.state_machine.state_idle
 
         def fail(self) -> 'State':
-            print("State error FAIL")
             return self.state_machine.state_error
 
 
