@@ -52,6 +52,7 @@ class EvominFrame:
         self.is_valid: bool = False
         self.command: int = command if command in [c.value for c in EvominFrameCommandType] else EvominFrameCommandType.RESERVED
         self.payload_buffer: EvominBuffer = EvominBuffer(payload)
+        self.answer_buffer: EvominBuffer = EvominBuffer()
         self.expected_payload_len: int = len(payload) if payload else 0
         self.crc8: int = 0
         self.timestamp: datetime = datetime.now()
@@ -60,7 +61,6 @@ class EvominFrame:
         self.last_byte: int = -1
 
         self._calculate_frame()
-        # answerBuffer ?
         # replyBuffer ?
 
     def _calculate_frame(self):
@@ -89,16 +89,10 @@ class EvominFrame:
         self.payload_buffer.reset()
         map(self.payload_buffer.push, payload_tmp)
         self.crc8 = self.calculate_crc8(bytes(crc_tmp))
-        print('> Calculated crc8: ', self.crc8)
 
     def get_payload(self) -> Generator[int, None, None]:
         for b in self.payload_buffer.buffer.queue:
             yield b
-
-    def set_payload(self, payload: bytes) -> None:
-        self.payload_buffer.reset()
-        self.add_payload(payload)
-        self._calculate_frame()
 
     def add_payload(self, payload_byte: int) -> None:
         self.payload_buffer.push(payload_byte)
