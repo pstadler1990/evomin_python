@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
+from __future__ import annotations
 from enum import Enum
 from evomin.communication import EvominComInterface
 from queue import Queue, Full
@@ -44,7 +45,7 @@ class EvominState(Enum):
 
 class StateMachine:
 
-    def __init__(self, evomin_interface: 'Evomin'):
+    def __init__(self, evomin_interface: Evomin):
         self.state_idle = self.StateIdle(self, evomin_interface, EvominFrameMessageType.SOF)
         self.state_sof = self.StateSof(self, evomin_interface, EvominFrameMessageType.SOF)
         self.state_sof2 = self.StateSof2(self, evomin_interface, EvominFrameMessageType.SOF)
@@ -67,37 +68,37 @@ class StateMachine:
         self.current_state = self.current_state.run(byte)
 
     class StateIdle(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateSof(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof2
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateSof2(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             return self.state_machine.state_cmd
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateCmd(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             # Initialize a new EvominFrame
             self.interface.current_frame = EvominFrame(command=byte)
             return self.state_machine.state_len
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateLen(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             self.interface.current_frame.payload_length = byte
             if byte > 0:
                 return self.state_machine.state_payld
@@ -108,11 +109,11 @@ class StateMachine:
                     self.interface.frame_received(self.interface.current_frame)
                 return self.state_machine.state_crc
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StatePayld(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             # For the reception of a frame body if two 0xAA bytes in a row are received
             # then the next received byte is discarded
             if self.interface.current_frame.last_byte_was_stfbyt:
@@ -146,11 +147,11 @@ class StateMachine:
             else:
                 return self.fail()
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateCRC(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             if byte == self.interface.current_frame.crc8:
                 self.interface.current_frame.is_valid = True
                 if self.interface.com_interface.describe().is_master_slave:
@@ -163,14 +164,14 @@ class StateMachine:
                     self.interface.com_interface.send_byte(EvominFrameMessageType.NACK)
                 return self.fail()
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_crc_fail
 
     class StateCRCFail(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             return self.fail()
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             # Call the error state directly, as there's no further data reception after this state
             self.interface.log_error('CRC8 failed')
             self.state_machine.state_error.run(0)
@@ -178,7 +179,7 @@ class StateMachine:
             return self.state_machine.state_idle
 
     class StateEof(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             if self.interface.current_frame.is_valid:
                 if self.interface.com_interface.describe().is_master_slave:
                     # Send number of reply bytes
@@ -192,11 +193,11 @@ class StateMachine:
             else:
                 return self.fail()
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateReply(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             if self.interface.current_frame.answer_buffer.size:
                 # Pop byte
                 reply_byte: int = self.interface.current_frame.answer_buffer.get()
@@ -204,23 +205,23 @@ class StateMachine:
                 return self
             return self.state_machine.state_idle
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateReplyCreateFrame(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             return self.state_machine.state_idle  # TODO
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
     class StateError(State):
-        def proceed(self, byte: int) -> 'State':
+        def proceed(self, byte: int) -> State:
             # TODO: Check if additional NACK is required here?
             self.interface.log_error('Error while frame reception, discard data')
             return self.state_machine.state_idle
 
-        def fail(self) -> 'State':
+        def fail(self) -> State:
             return self.state_machine.state_error
 
 
