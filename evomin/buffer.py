@@ -21,5 +21,8 @@ class EvominBuffer:
     def push(self, byte: int):
         self.buffer.put(byte)
 
+    def get(self) -> int:
+        return self.buffer.queue.popleft()
+
     def reset(self):
         self.buffer.queue.clear()
