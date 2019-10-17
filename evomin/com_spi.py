@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
+from typing import Optional
+
 from evomin.communication import EvominComInterface, ComDescription
 
 
@@ -10,7 +12,7 @@ class EvominSPIInterface(EvominComInterface):
     def describe(self):
         return ComDescription(is_master_slave=True)
 
-    def send_byte(self, byte: int) -> int:
+    def send_byte(self, byte: int) -> Optional[int]:
         # TODO
         pass
 

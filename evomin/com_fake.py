@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
-from typing import Generator
+from typing import Generator, Optional
 from evomin.communication import EvominComInterface, ComDescription
 
 
@@ -19,12 +19,12 @@ class EvominFakeSPIInterface(EvominComInterface):
     def describe(self):
         return ComDescription(is_master_slave=True)
 
-    def send_byte(self, byte: int) -> int:
+    def send_byte(self, byte: int) -> Optional[int]:
         print('-> Send byte: ', byte)
 
         # Possible implementation of SPI receive / transmit at the same time
         # byte_in = spi_rxtx(byte_out)
-        # self.receive_byte(byte_in)
+        # return byte_in
         return 0
 
     def receive_byte(self) -> Generator[int, None, None]:

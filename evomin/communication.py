@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*
 from abc import ABC, abstractmethod
 from collections import namedtuple
-from typing import Generator
+from typing import Generator, Optional
 
 ComDescription: namedtuple = namedtuple('ComDescription', ['is_master_slave'])
 
@@ -18,11 +18,11 @@ class EvominComInterface(ABC):
         pass
 
     @abstractmethod
-    def send_byte(self, byte: int) -> int:
+    def send_byte(self, byte: int) -> Optional[int]:
         """
         Gets automatically called through the evomin interface in order to send a byte over the low-level communication
         device.
-        :param byte: The byte to be sent
+        :param byte: The byte to be sent (optional, only on master-slave communication)
         """
         pass
 
