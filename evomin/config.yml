@@ -1,5 +1,6 @@
 interface:
   max_queued_frames: 5
+  resend_min_time: 1000
 
 frame:
   buffer_size: 50
