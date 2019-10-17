@@ -5,7 +5,7 @@ from enum import Enum
 from evomin.communication import EvominComInterface
 from queue import Queue, Full
 from evomin.config import config
-from evomin.frame import EvominFrame, EvominFrameMessageType
+from evomin.frame import EvominFrame, EvominFrameMessageType, EvominFrameCommandType, EvominSendFrame
 from evomin.state import *
 import logging
 
@@ -281,7 +281,12 @@ class Evomin(ABC):
         if self.enabled:
             logging.error(message)
 
-    def rx_handler(self) -> None:
+    def poll(self) -> None:
+        self._rx_handler()
+        # TODO: Check for queued frames to be sent
+        # send..
+
+    def _rx_handler(self) -> None:
         """
         This handler needs to be called periodically (or in a thread / interrupt), i.e. polling, to receive / transmit
         and process bytes and the higher level EvominFrames.
@@ -310,4 +315,22 @@ class Evomin(ABC):
         Implement this method in your application
         :param frame: The received valid frame including the command, payload and crc
         """
+        pass
+
+    def _queue_frame(self, frame: EvominSendFrame) -> bool:
+        pass
+
+    def _send_lowlevel(self, frame: EvominSendFrame) -> None:
+        pass
+
+    def send(self, command: EvominFrameCommandType, payload: bytes) -> None:
+        """
+
+        :param command:
+        :param payload:
+        """
+        frame: EvominFrame = EvominSendFrame(command.value, payload)
+        # Queue Frame (sending won't happen directly, but is processed through a sending queue)
+        self._queue_frame(frame)
+        # Frame is sent as soon as there's space (polling method is being called)
         pass
