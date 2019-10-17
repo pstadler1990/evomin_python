@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 from __future__ import annotations
+from datetime import datetime
 from enum import Enum
 from evomin.communication import EvominComInterface
 from queue import Queue, Full
@@ -283,8 +284,14 @@ class Evomin(ABC):
 
     def poll(self) -> None:
         self._rx_handler()
-        # TODO: Check for queued frames to be sent
-        # send..
+
+        # Check for queued frames to be sent
+        if not self.frame_send_queue.empty():
+            oldest_frame: EvominSendFrame = self.frame_send_queue.queue.popleft()
+            # Check if last try happened a while ago
+            if datetime.now() - oldest_frame.previous_timestamp >= config['interface']['resend_min_time']:
+                oldest_frame.previous_timestamp = datetime.now()
+                self._send_lowlevel(oldest_frame)
 
     def _rx_handler(self) -> None:
         """
@@ -318,19 +325,43 @@ class Evomin(ABC):
         pass
 
     def _queue_frame(self, frame: EvominSendFrame) -> bool:
-        pass
+        # Ensure queue is not full
+        try:
+            self.frame_send_queue.put(frame)
+            return True
+        except Full:
+            self.log_error('Frame cannot be send, as the queue is full')
+            return False
 
     def _send_lowlevel(self, frame: EvominSendFrame) -> None:
-        pass
+        # TODO: Implements C-API function send_frame(..)
+        if frame.retries_left:
+            # Send EvominFrame header
+            self.com_interface.send_byte(EvominFrameMessageType.SOF)
+            self.com_interface.send_byte(EvominFrameMessageType.SOF)
+            self.com_interface.send_byte(EvominFrameMessageType.SOF)
+            self.com_interface.send_byte(frame.command)
+            # Send payload length without the inserted stuff bytes (at this point, payload_length might differ
+            # from the real size of the payload buffer, but that's okay!
+            self.com_interface.send_byte(frame.payload_length)
+            # We actually send the whole payload including the inserted stuff bytes (if any), as the receiver
+            # will strip them out
+            for b in frame.get_payload():
+                self.com_interface.send_byte(b)
 
-    def send(self, command: EvominFrameCommandType, payload: bytes) -> None:
+            # TODO: Send checksum
+            # TODO: Receive ACK / NACK from receiver (if sync mode), else the ACK / NACK will be expected at the
+            # end of the frame
+            if self.com_interface.describe().is_master_slave:
+                pass
+
+    def send(self, command: EvominFrameCommandType, payload: bytes) -> bool:
         """
 
         :param command:
         :param payload:
+        :return: Whether the frame could be enqueued or not
         """
-        frame: EvominFrame = EvominSendFrame(command.value, payload)
+        frame: EvominSendFrame = EvominSendFrame(command.value, payload)
         # Queue Frame (sending won't happen directly, but is processed through a sending queue)
-        self._queue_frame(frame)
-        # Frame is sent as soon as there's space (polling method is being called)
-        pass
+        return self._queue_frame(frame)

@@ -73,11 +73,13 @@ class EvominFrame:
 
         found_pl_header: bool = False
         last_byte: int = -1
+        stuff_bytes: int = 0
         for b in self.payload_buffer.buffer.queue:
             if found_pl_header:
                 payload_tmp.append(EvominFrameMessageType.STFBYT)
                 last_byte = EvominFrameMessageType.STFBYT
                 found_pl_header = False
+                stuff_bytes += 1
             # For the transmission of a frame body if two 0xAA bytes in a row are transmitted a stuff byte
             # with value 0x55 is inserted into the transmitted byte stream
             if b == EvominFrameMessageType.SOF and last_byte == EvominFrameMessageType.SOF:
@@ -90,8 +92,9 @@ class EvominFrame:
 
         self.payload_buffer.reset()
         [self.payload_buffer.push(b) for b in payload_tmp]
-        self.payload_length = self.payload_buffer.size
+        self.payload_length = self.payload_buffer.size - stuff_bytes
         self.crc8 = self.calculate_crc8(bytes(crc_tmp))
+        self.is_valid = True
 
     def get_payload(self) -> Generator[int, None, None]:
         for b in self.payload_buffer.buffer.queue:
@@ -130,3 +133,4 @@ class EvominSendFrame(EvominFrame):
     """
     def __init__(self, command: int, payload: bytes) -> None:
         super().__init__(command, payload)
+        self.previous_timestamp: datetime = datetime.now()
