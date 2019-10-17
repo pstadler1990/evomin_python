@@ -87,7 +87,7 @@ class EvominFrame:
             payload_tmp.append(b)
 
         self.payload_buffer.reset()
-        map(self.payload_buffer.push, payload_tmp)
+        [self.payload_buffer.push(b) for b in payload_tmp]
         self.crc8 = self.calculate_crc8(bytes(crc_tmp))
 
     def get_payload(self) -> Generator[int, None, None]:
