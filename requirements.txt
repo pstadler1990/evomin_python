@@ -1,3 +1,2 @@
 pyyaml
-sphinx
-sphinx-autodoc-typehints
+spidev==3.4
