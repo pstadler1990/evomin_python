@@ -50,6 +50,7 @@ class StateMachine:
     Internal state machine to handle both, transmission and reception of data and EvominFrames
     """
     def __init__(self, evomin_interface: Evomin):
+        self.state_waiting_for_ack = self.StateWaitingForACK(self, evomin_interface, EvominFrameMessageType.ACK)
         self.state_idle = self.StateIdle(self, evomin_interface, EvominFrameMessageType.SOF)
         self.state_sof = self.StateSof(self, evomin_interface, EvominFrameMessageType.SOF)
         self.state_sof2 = self.StateSof2(self, evomin_interface, EvominFrameMessageType.SOF)
@@ -74,6 +75,14 @@ class StateMachine:
         :param byte: current received byte (from the low-level receive handler)
         """
         self.current_state = self.current_state.run(byte)
+
+    class StateWaitingForACK(State):
+        """Waiting for ACK in non master-slave mode"""
+        def proceed(self, byte: int) -> State:
+            return self.state_machine.state_idle
+
+        def fail(self) -> State:
+            return self.state_machine.state_error
 
     class StateIdle(State):
         """Waiting for start of frames"""
@@ -283,6 +292,9 @@ class Evomin(ABC):
             logging.error(message)
 
     def poll(self) -> None:
+        """
+
+        """
         self._rx_handler()
 
         # Check for queued frames to be sent
@@ -334,7 +346,10 @@ class Evomin(ABC):
             return False
 
     def _send_lowlevel(self, frame: EvominSendFrame) -> None:
-        # TODO: Implements C-API function send_frame(..)
+        """
+
+        :param frame:
+        """
         if frame.retries_left:
             # Send EvominFrame header
             self.com_interface.send_byte(EvominFrameMessageType.SOF)
@@ -349,11 +364,38 @@ class Evomin(ABC):
             for b in frame.get_payload():
                 self.com_interface.send_byte(b)
 
-            # TODO: Send checksum
-            # TODO: Receive ACK / NACK from receiver (if sync mode), else the ACK / NACK will be expected at the
-            # end of the frame
+            # Send checksum
+            self.com_interface.send_byte(frame.crc8)
+
+            # Receive ACK / NACK from receiver in master-slave mode
+            receiver_is_ack: bool = (self.com_interface.send_byte(EvominFrameMessageType.EOF) == EvominFrameMessageType.ACK)
             if self.com_interface.describe().is_master_slave:
-                pass
+                if receiver_is_ack:
+                    # Receiver replies with number of answer bytes it wants to send back on the second EOF
+                    receiver_answer_bytes: int = self.com_interface.send_byte(EvominFrameMessageType.EOF)
+                    if receiver_answer_bytes:
+                        # Fill reply buffer
+                        receiver_bytes_sent: int = 0
+                        while receiver_bytes_sent < receiver_answer_bytes:
+                            frame.reply_buffer.push(self.com_interface.send_byte(EvominFrameMessageType.DUMMY))
+
+                        # TODO: Inform user that we've got a reply (handler_reply_received())
+
+                    self.com_interface.send_byte(EvominFrameMessageType.ACK)
+                    frame.is_sent = True
+                else:
+                    self.com_interface.send_byte(EvominFrameMessageType.NACK)
+                    # Frame hasn't been sent, keep in queue
+                    if frame.retries_left - 1 > 0:
+                        frame.retries_left -= 1
+                        # Enqueue frame again
+                        self.frame_send_queue.queue.appendleft(frame)
+
+            # Frame is already removed from the queue at this point
+            else:
+                # In non-sync mode (master-slave, i.e. UART), set the internal state machine to waiting_for_ack
+                # as we expect to receive a ACK / NACK at the end of each transmission
+                self.state.current_state = self.state.state_reply_createframe
 
     def send(self, command: EvominFrameCommandType, payload: bytes) -> bool:
         """
