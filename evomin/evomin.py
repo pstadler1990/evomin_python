@@ -299,9 +299,10 @@ class Evomin(ABC):
 
         # Check for queued frames to be sent
         if not self.frame_send_queue.empty():
-            oldest_frame: EvominSendFrame = self.frame_send_queue.queue.popleft()
+            oldest_frame_peek: EvominSendFrame = self.frame_send_queue.queue[0]
             # Check if last try happened a while ago
-            if datetime.now() - oldest_frame.previous_timestamp >= config['interface']['resend_min_time']:
+            if datetime.now().timestamp() - oldest_frame_peek.previous_timestamp.timestamp() >= config['interface']['resend_min_time']:
+                oldest_frame: EvominSendFrame = self.frame_send_queue.queue.popleft()
                 oldest_frame.previous_timestamp = datetime.now()
                 self._send_lowlevel(oldest_frame)
 
@@ -336,6 +337,15 @@ class Evomin(ABC):
         """
         pass
 
+    @abstractmethod
+    def reply_received(self, reply_payload: bytes) -> None:
+        """
+        Blueprint method to be implemented by the user.
+        This callback gets called whenever we've received some bytes as a direct reply to a sent frame.
+        Implement this method in your application
+        :param reply_payload:
+        """
+
     def _queue_frame(self, frame: EvominSendFrame) -> bool:
         # Ensure queue is not full
         try:
@@ -350,6 +360,7 @@ class Evomin(ABC):
 
         :param frame:
         """
+        print('***** SEND LOWLEVEL *****')
         if frame.retries_left:
             # Send EvominFrame header
             self.com_interface.send_byte(EvominFrameMessageType.SOF)
@@ -376,10 +387,12 @@ class Evomin(ABC):
                     if receiver_answer_bytes:
                         # Fill reply buffer
                         receiver_bytes_sent: int = 0
+                        reply_buffer: bytearray = bytearray()
                         while receiver_bytes_sent < receiver_answer_bytes:
-                            frame.reply_buffer.push(self.com_interface.send_byte(EvominFrameMessageType.DUMMY))
+                            reply_buffer.append(self.com_interface.send_byte(EvominFrameMessageType.DUMMY))
 
-                        # TODO: Inform user that we've got a reply (handler_reply_received())
+                        # Inform user that we've got a reply
+                        self.reply_received(reply_buffer)
 
                     self.com_interface.send_byte(EvominFrameMessageType.ACK)
                     frame.is_sent = True
@@ -390,8 +403,10 @@ class Evomin(ABC):
                         frame.retries_left -= 1
                         # Enqueue frame again
                         self.frame_send_queue.queue.appendleft(frame)
-
-            # Frame is already removed from the queue at this point
+                        return
+                    else:
+                        print('Frame dropped, as it could not be sent')
+                        # Frame is already removed from the queue at this point
             else:
                 # In non-sync mode (master-slave, i.e. UART), set the internal state machine to waiting_for_ack
                 # as we expect to receive a ACK / NACK at the end of each transmission
