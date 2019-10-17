@@ -18,7 +18,7 @@ class EvominComInterface(ABC):
         pass
 
     @abstractmethod
-    def send_byte(self, byte: int) -> None:
+    def send_byte(self, byte: int) -> int:
         """
         Gets automatically called through the evomin interface in order to send a byte over the low-level communication
         device.

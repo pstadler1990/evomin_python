@@ -10,7 +10,7 @@ class EvominSPIInterface(EvominComInterface):
     def describe(self):
         return ComDescription(is_master_slave=True)
 
-    def send_byte(self, byte: int) -> None:
+    def send_byte(self, byte: int) -> int:
         # TODO
         pass
 

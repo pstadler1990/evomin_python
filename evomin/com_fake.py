@@ -18,9 +18,9 @@ class EvominFakeSPIInterface(EvominComInterface):
     def describe(self):
         return ComDescription(is_master_slave=True)
 
-    def send_byte(self, byte: int) -> None:
+    def send_byte(self, byte: int) -> int:
         print('-> Send byte: ', byte)
-        pass
+        return 0
 
     def receive_byte(self) -> Generator[int, None, None]:
         for b in self.test_data:
