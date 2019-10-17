@@ -11,6 +11,10 @@ class EvominImpl(Evomin):
     """
     Concrete application side implementation
     """
+
+    def reply_received(self, reply_payload: bytes) -> None:
+        print('** Reply received **')
+
     def frame_received(self, frame: EvominFrame) -> None:
         print('** Frame received **')
         self.log_debug('[Evomin] EvominFrame received, Command: {}, Payload length: {}'.format(frame.command, frame.payload_length))
@@ -27,10 +31,9 @@ if __name__ == '__main__':
     # Initialize evomin communication interface with SPI transport
     evomin = EvominImpl(com_interface=EvominFakeSPIInterface())
 
+    # evomin.send(EvominFrameCommandType.SEND_IDN, bytes([0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xBB, 0xFF]))
+
     # Polling interface
     while True:
         evomin.poll()
-
-        evomin.send(EvominFrameCommandType.SEND_IDN, bytes([0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xBB, 0xFF]))
-
-        sleep(1)
+        # sleep(1)
