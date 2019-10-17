@@ -54,6 +54,7 @@ class EvominFrame:
         self.command: int = command if command in [c.value for c in EvominFrameCommandType] else EvominFrameCommandType.RESERVED
         self.payload_buffer: EvominBuffer = EvominBuffer(payload)
         self.answer_buffer: EvominBuffer = EvominBuffer()
+        self.reply_buffer: EvominBuffer = EvominBuffer()
         self.expected_payload_len: int = len(payload) if payload else 0
         self.crc8: int = 0
         self.timestamp: datetime = datetime.now()
