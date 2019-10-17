@@ -40,6 +40,8 @@ class EvominFrameCommandType(Enum):
 
 class EvominFrame:
 
+    IS_RECEIVED_FRAME = True
+
     def __init__(self, command: int, payload: Optional[bytes] = None) -> None:
         """
         Initialize a new EvominFrame from received bytes.
@@ -54,7 +56,6 @@ class EvominFrame:
         self.command: int = command if command in [c.value for c in EvominFrameCommandType] else EvominFrameCommandType.RESERVED
         self.payload_buffer: EvominBuffer = EvominBuffer(payload)
         self.answer_buffer: EvominBuffer = EvominBuffer()
-        self.reply_buffer: EvominBuffer = EvominBuffer()
         self.expected_payload_len: int = len(payload) if payload else 0
         self.crc8: int = 0
         self.timestamp: datetime = datetime.now()
@@ -77,7 +78,8 @@ class EvominFrame:
         stuff_bytes: int = 0
         for b in self.payload_buffer.buffer.queue:
             if found_pl_header:
-                payload_tmp.append(EvominFrameMessageType.STFBYT)
+                if not self.IS_RECEIVED_FRAME:
+                    payload_tmp.append(EvominFrameMessageType.STFBYT)
                 last_byte = EvominFrameMessageType.STFBYT
                 found_pl_header = False
                 stuff_bytes += 1
@@ -93,7 +95,7 @@ class EvominFrame:
 
         self.payload_buffer.reset()
         [self.payload_buffer.push(b) for b in payload_tmp]
-        self.payload_length = self.payload_buffer.size - stuff_bytes
+        self.payload_length = self.payload_buffer.size - stuff_bytes if not self.IS_RECEIVED_FRAME else self.payload_buffer.size
         self.crc8 = self.calculate_crc8(bytes(crc_tmp))
         self.is_valid = True
 
@@ -132,6 +134,8 @@ class EvominSendFrame(EvominFrame):
     """
     EvominSendFrame is a EvominFrame to be sent
     """
+    IS_RECEIVED_FRAME = False
+
     def __init__(self, command: int, payload: bytes) -> None:
         super().__init__(command, payload)
         self.previous_timestamp: datetime = datetime.now()
