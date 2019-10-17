@@ -9,7 +9,7 @@ class EvominBuffer:
     def __init__(self, initial_bytes: bytes = bytes([])):
         self.buffer: Queue = Queue(maxsize=config['frame']['buffer_size'])
         try:
-            map(self.buffer.put, initial_bytes)
+            [self.buffer.put(b) for b in initial_bytes]
         except TypeError:
             # If no initial bytes were given, skip
             pass
