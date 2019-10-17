@@ -42,8 +42,9 @@ class EvominFrame:
 
     def __init__(self, command: int, payload: Optional[bytes] = None) -> None:
         """
-        Initialize a new EvominFrame to be sent respectively queued. Every communication transaction consists of
-        a EvominFrame, as it acts as a wrapper for the internal protocol and is processed through the state machine.
+        Initialize a new EvominFrame from received bytes.
+        Every communication transaction consists of a EvominFrame, as it acts as a wrapper for the internal protocol
+        that is processed through the state machine.
         :param command: EvominFrameCommandType
         :param payload: Any number of bytes - for compatibility with the C API pay attention to the defined maximum
                         payload size
@@ -61,7 +62,6 @@ class EvominFrame:
         self.last_byte: int = -1
 
         self._calculate_frame()
-        # replyBuffer ?
 
     def _calculate_frame(self):
         payload_tmp: list = []
@@ -83,11 +83,14 @@ class EvominFrame:
             if b == EvominFrameMessageType.SOF and last_byte == EvominFrameMessageType.SOF:
                 found_pl_header = True
 
+            last_byte = b
+
             crc_tmp.append(b)
             payload_tmp.append(b)
 
         self.payload_buffer.reset()
         [self.payload_buffer.push(b) for b in payload_tmp]
+        self.payload_length = self.payload_buffer.size
         self.crc8 = self.calculate_crc8(bytes(crc_tmp))
 
     def get_payload(self) -> Generator[int, None, None]:
@@ -119,3 +122,11 @@ class EvominFrame:
                 else:
                     crc_initial >>= 1
         return crc_initial
+
+
+class EvominSendFrame(EvominFrame):
+    """
+    EvominSendFrame is a EvominFrame to be sent
+    """
+    def __init__(self, command: int, payload: bytes) -> None:
+        super().__init__(command, payload)
