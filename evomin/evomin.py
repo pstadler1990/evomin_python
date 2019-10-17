@@ -79,6 +79,12 @@ class StateMachine:
     class StateWaitingForACK(State):
         """Waiting for ACK in non master-slave mode"""
         def proceed(self, byte: int) -> State:
+            previous_frame: EvominSendFrame = self.interface.frame_send_queue.queue[0]
+            if previous_frame is not None and previous_frame.waiting_for_ack:
+                previous_frame.is_sent = True
+            else:
+                return self.fail()
+
             return self.state_machine.state_idle
 
         def fail(self) -> State:
@@ -293,7 +299,8 @@ class Evomin(ABC):
 
     def poll(self) -> None:
         """
-
+        Evomin's main method for both, sending and receiving EvominFrames.
+        Call this in your application's main loop, or i.e. in a separate thread.
         """
         self._rx_handler()
 
@@ -302,9 +309,13 @@ class Evomin(ABC):
             oldest_frame_peek: EvominSendFrame = self.frame_send_queue.queue[0]
             # Check if last try happened a while ago
             if datetime.now().timestamp() - oldest_frame_peek.previous_timestamp.timestamp() >= config['interface']['resend_min_time']:
-                oldest_frame: EvominSendFrame = self.frame_send_queue.queue.popleft()
-                oldest_frame.previous_timestamp = datetime.now()
-                self._send_lowlevel(oldest_frame)
+                if not oldest_frame_peek.is_sent:
+                    oldest_frame: EvominSendFrame = self.frame_send_queue.queue.popleft()
+                    oldest_frame.previous_timestamp = datetime.now()
+                    self._send_lowlevel(oldest_frame)
+                else:
+                    # Frame has already been sent, drop it
+                    self.frame_send_queue.queue.popleft()
 
     def _rx_handler(self) -> None:
         """
@@ -356,11 +367,6 @@ class Evomin(ABC):
             return False
 
     def _send_lowlevel(self, frame: EvominSendFrame) -> None:
-        """
-
-        :param frame:
-        """
-        print('***** SEND LOWLEVEL *****')
         if frame.retries_left:
             # Send EvominFrame header
             self.com_interface.send_byte(EvominFrameMessageType.SOF)
@@ -398,19 +404,22 @@ class Evomin(ABC):
                     frame.is_sent = True
                 else:
                     self.com_interface.send_byte(EvominFrameMessageType.NACK)
-                    # Frame hasn't been sent, keep in queue
-                    if frame.retries_left - 1 > 0:
-                        frame.retries_left -= 1
-                        # Enqueue frame again
-                        self.frame_send_queue.queue.appendleft(frame)
-                        return
-                    else:
-                        print('Frame dropped, as it could not be sent')
-                        # Frame is already removed from the queue at this point
+
             else:
                 # In non-sync mode (master-slave, i.e. UART), set the internal state machine to waiting_for_ack
                 # as we expect to receive a ACK / NACK at the end of each transmission
+                frame.waiting_for_ack = True
                 self.state.current_state = self.state.state_reply_createframe
+
+            # Frame hasn't been sent, keep in queue
+            if not frame.is_sent and frame.retries_left - 1 > 0:
+                frame.retries_left -= 1
+                # Enqueue frame again
+                self.frame_send_queue.queue.appendleft(frame)
+                return
+            else:
+                print('Frame dropped, as it could not be sent')
+                # Frame is already removed from the queue at this point
 
     def send(self, command: EvominFrameCommandType, payload: bytes) -> bool:
         """

@@ -62,6 +62,7 @@ class EvominFrame:
         self.retries_left: int = config['frame']['retry_count']
         self.last_byte_was_stfbyt: bool = False
         self.last_byte: int = -1
+        self.waiting_for_ack: bool = False
 
         self._calculate_frame()
 
