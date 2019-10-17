@@ -11,6 +11,7 @@ if TYPE_CHECKING:
 class State(ABC):
     """
     Abstract state blueprint
+
     run: the actual state execution
     proceed: translate to the next state
     fail: fail the current state
