@@ -148,7 +148,6 @@ class StateMachine:
             if self.interface.current_frame.last_byte_was_stfbyt:
                 self.interface.current_frame.last_byte_was_stfbyt = False
                 self.interface.current_frame.last_byte = EvominFrameMessageType.STFBYT
-                print('Ignoring additional stuff byte..')
                 return self
             if byte == EvominFrameMessageType.SOF \
                     and self.interface.current_frame.last_byte == EvominFrameMessageType.SOF:
@@ -159,18 +158,17 @@ class StateMachine:
             if self.interface.current_frame.payload_length:
                 try:
                     self.interface.current_frame.add_payload(byte)
-
                     if self.interface.current_frame.payload_buffer.size == self.interface.current_frame.payload_length:
                         # We've copied everything into the payload buffer
                         self.interface.current_frame.finalize()
-
                         if self.interface.com_interface.describe().is_master_slave:
                             # On a master-slave communication interface, call the frame_received handler early, to allow
                             # the slave to prepare a reply
                             self.interface.frame_received(self.interface.current_frame)
-
                         return self.state_machine.state_crc
+
                     else:
+                        # Need to copy additional payload data
                         return self
                 except Full:
                     return self.fail()
@@ -271,6 +269,8 @@ class Evomin(ABC):
     Evomin is the main entry point to the evomin communication interface
     Note that this class is abstract, as you need to implement some methods, depending on your use case.
     """
+    SELF_VERSION = '0.1'
+
     def __init__(self, com_interface: EvominComInterface) -> None:
         """
         Initialize the evomin communication interface
@@ -283,6 +283,10 @@ class Evomin(ABC):
         self.byte_getter = self.com_interface.receive_byte()
 
         self._init_logger()
+        self.log_debug('Evomin communication interface opened. Version: {v}'.format(v=self.SELF_VERSION))
+
+    def __del__(self):
+        self.log_debug('* Closed communication interface *')
 
     def _init_logger(self):
         self.enabled = config['logging']['use_logging']
@@ -418,7 +422,7 @@ class Evomin(ABC):
                 self.frame_send_queue.queue.appendleft(frame)
                 return
             else:
-                print('Frame dropped, as it could not be sent')
+                self.log_error('Frame dropped as it could not be sent within the maximum retry count')
                 # Frame is already removed from the queue at this point
 
     def send(self, command: EvominFrameCommandType, payload: bytes) -> bool:
