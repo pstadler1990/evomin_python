@@ -13,6 +13,7 @@ import logging
 class EvominState(Enum):
     """
     EvominState are used to describe the current internal state while sending and / or receiving EvominFrames.
+
     UNDEFINED: Before initialization or error while initialization
     INIT: EvominInterface is being initialized
     IDLE: Waiting for the beginning of a reception / transmission process (waiting for SOF byte)
@@ -74,9 +75,7 @@ class StateMachine:
         self.current_state = self.current_state.run(byte)
 
     class StateIdle(State):
-        """
-        Waiting for start of frames
-        """
+        """Waiting for start of frames"""
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof
 
@@ -84,9 +83,7 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateSof(State):
-        """
-        Waiting for SOF byte 2
-        """
+        """Waiting for SOF byte 2"""
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_sof2
 
@@ -94,9 +91,7 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateSof2(State):
-        """
-        Waiting for SOF byte 3
-        """
+        """Waiting for SOF byte 3"""
         def proceed(self, byte: int) -> State:
             return self.state_machine.state_cmd
 
@@ -104,9 +99,7 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateCmd(State):
-        """
-        Reading in command identifier
-        """
+        """Reading in command identifier"""
         def proceed(self, byte: int) -> State:
             # Initialize a new EvominFrame
             self.interface.current_frame = EvominFrame(command=byte)
@@ -116,9 +109,7 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateLen(State):
-        """
-        Reading in payload length
-        """
+        """Reading in payload length"""
         def proceed(self, byte: int) -> State:
             self.interface.current_frame.payload_length = byte
             if byte > 0:
@@ -134,15 +125,14 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StatePayld(State):
-        """
-        Processing and copying payload
-        """
+        """Processing and copying payload"""
         def proceed(self, byte: int) -> State:
             # For the reception of a frame body if two 0xAA bytes in a row are received
             # then the next received byte is discarded
             if self.interface.current_frame.last_byte_was_stfbyt:
                 self.interface.current_frame.last_byte_was_stfbyt = False
                 self.interface.current_frame.last_byte = EvominFrameMessageType.STFBYT
+                print('Ignoring additional stuff byte..')
                 return self
             if byte == EvominFrameMessageType.SOF \
                     and self.interface.current_frame.last_byte == EvominFrameMessageType.SOF:
@@ -175,9 +165,7 @@ class StateMachine:
             return self.state_machine.state_error
 
     class StateCRC(State):
-        """
-        CRC calculation and check
-        """
+        """CRC calculation and check"""
         def proceed(self, byte: int) -> State:
             if byte == self.interface.current_frame.crc8:
                 self.interface.current_frame.is_valid = True
@@ -195,9 +183,7 @@ class StateMachine:
             return self.state_machine.state_crc_fail
 
     class StateCRCFail(State):
-        """
-        Failed crc check
-        """
+        """Failed crc check"""
         def proceed(self, byte: int) -> State:
             return self.fail()
 
@@ -209,9 +195,7 @@ class StateMachine:
             return self.state_machine.state_idle
 
     class StateEof(State):
-        """
-        Waiting for end of frame
-        """
+        """Waiting for end of frame"""
         def proceed(self, byte: int) -> State:
             if self.interface.current_frame.is_valid:
                 if self.interface.com_interface.describe().is_master_slave:
@@ -278,7 +262,7 @@ class Evomin(ABC):
         """
         self.com_interface: EvominComInterface = com_interface
         self.frame_send_queue: Queue = Queue(maxsize=config['interface']['max_queued_frames'])
-        self.current_frame: EvominFrame = type(None)
+        self.current_frame = None
         self.state: StateMachine = StateMachine(self)
         self.byte_getter = self.com_interface.receive_byte()
 
@@ -308,6 +292,9 @@ class Evomin(ABC):
                 # Byte received
                 print("Received byte: ", incoming_byte)
                 self.state.run(incoming_byte)
+
+                if self.current_frame:
+                    self.current_frame.last_byte = incoming_byte
         except StopIteration:
             pass
 
