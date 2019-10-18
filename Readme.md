@@ -155,9 +155,23 @@ while True:
     sleep(1)
 ````
 
-## Mocked SPI interface
-### Master sends a test frame, slave replies with 4 answer bytes
+## Replying (only on a master-slave setup)
+To reply directly to master's message, i.e. to reply to a ``READ_SENSOR`` message, use the ``reply()`` method.
+This method call needs to be placed inside the ``frame_received()`` method inside your concrete implementation of the ``Evomin`` class.
 
+````python
+def frame_received(self, frame: EvominFrame) -> None:
+    print('** Frame received **')
+    
+    # Reply with two bytes 0x1 and 0x2
+    self.reply(bytes([0x01, 0x02]))
+````
+
+The reply bytes are then transferred to an internal buffer and sent on the next master bytes.
+
+## Examples
+### Mocked SPI interface
+#### Master sends a test frame, slave replies with 4 answer bytes
 Below is a complete frame with comments to show how evomin performs on a single transfer of 8 bytes from the master
 and a 4 bytes length reply from the attached slave device.
 
