@@ -23,8 +23,8 @@ class EvominState(Enum):
     CMD: Command byte received -> next state: LEN
     LEN: Payload length received -> next state: CRC
     CRC: CRC byte received -> next state: EOF on successful crc check, CRC_FAIL on crc failure
-    REPLY_CREATEFRAME: Used for direct communication i.e. UART to prepare a new frame (only for compatibility reasons)
     REPLY: Slave is sending reply bytes (direct answer) in a master-slave communication
+    RESERVED
     MSG_SENT_WAIT_FOR_ACK: Used for direct communication to acknowledge a sent frame (only for compatibility reasons)
     ERROR: Any error happened while in a state IDLE..MSG_SENT_WAIT_FOR_ACK
     """
@@ -39,7 +39,7 @@ class EvominState(Enum):
     CRC = 8
     CRC_FAIL = 9
     EOF = 10
-    REPLY_CREATEFRAME = 11
+    RESERVED = 11
     REPLY = 12
     MSG_SENT_WAIT_FOR_ACK = 13
     ERROR = 14
@@ -61,7 +61,6 @@ class StateMachine:
         self.state_crc_fail = self.StateCRCFail(self, evomin_interface)
         self.state_eof = self.StateEof(self, evomin_interface, EvominFrameMessageType.EOF)
         self.state_reply = self.StateReply(self, evomin_interface)
-        self.state_reply_createframe = self.StateReplyCreateFrame(self, evomin_interface)
         self.state_error = self.StateError(self, evomin_interface)
         self.interface = evomin_interface
         self.current_state: State = self.state_idle
@@ -243,13 +242,6 @@ class StateMachine:
         def fail(self) -> State:
             return self.state_machine.state_error
 
-    class StateReplyCreateFrame(State):
-        def proceed(self, byte: int) -> State:
-            return self.state_machine.state_idle  # TODO
-
-        def fail(self) -> State:
-            return self.state_machine.state_error
-
     class StateError(State):
         """
         Whenever something terrible happened while receiving a frame, we end up here..
@@ -306,7 +298,10 @@ class Evomin(ABC):
         Evomin's main method for both, sending and receiving EvominFrames.
         Call this in your application's main loop, or i.e. in a separate thread.
         """
-        self._rx_handler()
+        if not self.com_interface.describe().is_master_slave:
+            # Calling the rx_handler only makes sense in an non master-slave environment,
+            # as the slave can only reply directly to a master's message
+            self._rx_handler()
 
         # Check for queued frames to be sent
         if not self.frame_send_queue.empty():
@@ -360,6 +355,7 @@ class Evomin(ABC):
         Implement this method in your application
         :param reply_payload:
         """
+        pass
 
     def _queue_frame(self, frame: EvominSendFrame) -> bool:
         # Ensure queue is not full
@@ -399,7 +395,10 @@ class Evomin(ABC):
                         receiver_bytes_sent: int = 0
                         reply_buffer: bytearray = bytearray()
                         while receiver_bytes_sent < receiver_answer_bytes:
-                            reply_buffer.append(self.com_interface.send_byte(EvominFrameMessageType.DUMMY))
+                            reply_byte: int = self.com_interface.send_byte(EvominFrameMessageType.DUMMY)
+                            if reply_byte is not None and reply_byte in range(256):
+                                reply_buffer.append(reply_byte)
+                            receiver_bytes_sent += 1
 
                         # Inform user that we've got a reply
                         self.reply_received(reply_buffer)
@@ -413,7 +412,7 @@ class Evomin(ABC):
                 # In non-sync mode (master-slave, i.e. UART), set the internal state machine to waiting_for_ack
                 # as we expect to receive a ACK / NACK at the end of each transmission
                 frame.waiting_for_ack = True
-                self.state.current_state = self.state.state_reply_createframe
+                self.state.current_state = self.state.state_waiting_for_ack
 
             # Frame hasn't been sent, keep in queue
             if not frame.is_sent and frame.retries_left - 1 > 0:

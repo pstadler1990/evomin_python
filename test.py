@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
 from time import sleep
-
 from evomin.com_fake import EvominFakeSPIInterface
 from evomin.evomin import Evomin
 from evomin.frame import EvominFrame, EvominFrameCommandType
@@ -13,7 +12,9 @@ class EvominImpl(Evomin):
     """
 
     def reply_received(self, reply_payload: bytes) -> None:
-        print('** Reply received **')
+        print('** Reply received, {ps} bytes **'.format(ps=len(reply_payload)))
+        for b in reply_payload:
+            print(b)
 
     def frame_received(self, frame: EvominFrame) -> None:
         print('** Frame received **')
@@ -31,9 +32,9 @@ if __name__ == '__main__':
     # Initialize evomin communication interface with SPI transport
     evomin = EvominImpl(com_interface=EvominFakeSPIInterface())
 
-    # evomin.send(EvominFrameCommandType.SEND_IDN, bytes([0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xBB, 0xFF]))
+    evomin.send(EvominFrameCommandType.SEND_IDN, bytes([0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xAA, 0xBB, 0xFF]))
 
     # Polling interface
     while True:
         evomin.poll()
-        # sleep(1)
+        sleep(1)
