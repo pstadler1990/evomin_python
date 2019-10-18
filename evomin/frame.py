@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*
+from datetime import datetime
 from enum import Enum
 from typing import Optional, Generator
 from evomin.buffer import EvominBuffer
-from datetime import datetime
 from evomin.config import config
 
 
