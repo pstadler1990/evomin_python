@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*
 from queue import Queue
 from evomin.config import config
+from evomin.exceptions import EvominNotAByteException
 
 
 class EvominBuffer:
@@ -19,7 +20,10 @@ class EvominBuffer:
         return self.buffer.qsize()
 
     def push(self, byte: int):
-        self.buffer.put(byte)
+        if byte in range(256):
+            self.buffer.put(byte)
+        else:
+            raise EvominNotAByteException('Payload byte must be a valid byte between 0..255')
 
     def get(self) -> int:
         return self.buffer.queue.popleft()
